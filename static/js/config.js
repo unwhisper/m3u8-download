@@ -50,7 +50,7 @@ class Config {
         ipcMain.on("checkForUpdate", () => {
             if (process.env.NODE_ENV !== 'development') {
                 //执行自动检查更新
-                update.checkUpdate()
+                // update.checkUpdate()
             }
             //update.checkUpdate()
         })
