@@ -67,7 +67,7 @@ function createPlayerWindow(src) {
 		// 创建浏览器窗口
 		playerWindow = new BrowserWindow({
 			width: 1024,
-			height: 600,
+			height: 620,
 			skipTaskbar: false,
 			transparent: false, 
 			frame: false, 
@@ -168,7 +168,7 @@ ipcMain.on('StartOrStop', function (event, arg) {
 });
 
 ipcMain.on('task-add', async function (event, arg, headers) {
-  let src = arg;
+  	let src = arg;
 	let _headers = {};
 	if(headers != '')
 	{
@@ -200,14 +200,14 @@ ipcMain.on('task-add', async function (event, arg, headers) {
 		let info = '';
 		let code = 0;
 		code = -1;
-    info = '解析资源失败！';
+    	info = '解析资源失败！';
 		if (response && response.body != null
 			&& response.body != '')
 		{
 			let parser = new Parser();
 			parser.push(response.body);
-      parser.end();
-      let count_seg = parser.manifest.segments.length;
+      		parser.end();
+      		let count_seg = parser.manifest.segments.length;
 			if (count_seg > 0) {
 				code = 0;
 				if (parser.manifest.endList) {
@@ -215,7 +215,7 @@ ipcMain.on('task-add', async function (event, arg, headers) {
 					parser.manifest.segments.forEach(segment => {
 						duration += segment.duration;
 					});
-          info = `资源解析成功，有 ${count_seg} 个片段，时长：${formatTime(duration)}，即将开始缓存...`;
+          			info = `资源解析成功，有 ${count_seg} 个片段，时长：${formatTime(duration)}，即将开始缓存...`;
 					startDownload(src, _headers);
 				} else {
 					info = `直播资源解析成功，即将开始缓存...`;
@@ -382,7 +382,7 @@ function queue_callback(that, callback)
 async function startDownload(url, headers = null, nId = null) {
 	let id = nId == null ? new Date().getTime() : nId;
 
-  let dir = path.join(store.get('downloadPath'), '/'+id);
+  	let dir = path.join(store.get('downloadPath'), '/'+id);
 
 	let filesegments = [];
 
@@ -400,8 +400,8 @@ async function startDownload(url, headers = null, nId = null) {
 	parser.push(response.body);
 	parser.end();
 
-	//并发 2 个线程下载
-	var tsQueues = async.queue(queue_callback, 2);
+	//并发 3 个线程下载
+	var tsQueues = async.queue(queue_callback, 3);
 
 	let count_seg = parser.manifest.segments.length;
 	let count_downloaded = 0;
