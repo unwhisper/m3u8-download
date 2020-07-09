@@ -192,10 +192,9 @@ ipcMain.on('task-add', async function (event, arg, headers) {
 	}
 	if(_headers['Referer'] == null && _headers['referer'] == null)
 	{
-		_headers['Referer'] = _hosts;
-  }
-  
-  const response = await got(src, {headers: _headers, timeout: httpTimeout, https: {rejectUnauthorized: false}}).catch((error) => { console.log(error) })
+		_headers['Referer'] = _hosts;   
+	}
+  	const response = await got(src, {headers: _headers, timeout: httpTimeout, https: {rejectUnauthorized: false}}).catch((error) => { console.log(error) })
 	{
 		let info = '';
 		let code = 0;
