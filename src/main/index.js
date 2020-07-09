@@ -321,7 +321,7 @@ class QueueObject {
 							}
 						}
 
-						await download (key_uri, that.dir, { filename: "aes.key" ,headers:that.headers,timeout:httpTimeout}).catch(console.error);
+						await download (key_uri, that.dir, { filename: "aes.key" }).catch(console.error);
 					}
 					if(fs.existsSync( aes_path ))
 					{
@@ -330,17 +330,16 @@ class QueueObject {
 							let iv_ = segment.key.iv != null ? Buffer.from(segment.key.iv.buffer)
 							:Buffer.from(that.idx.toString(16).padStart(32,'0') ,'hex' );
 							let cipher = crypto.createDecipheriv((segment.key.method+"-cbc").toLowerCase(), key_, iv_);
-							cipher.on('error', console.error);
+							cipher.on('error', (error) => {console.log(error)});
 							let inputData = fs.readFileSync( filpath_dl );
-							let outputData =Buffer.concat([cipher.update(inputData),cipher.final()]);
+							let outputData = Buffer.concat([cipher.update(inputData),cipher.final()]);
 							fs.writeFileSync(filpath,outputData);
 							
-							if(fs.existsSync(filpath_dl))
-								fs.unlinkSync(filpath_dl);
+							if(fs.existsSync(filpath_dl)) fs.unlinkSync(filpath_dl);
 							
 							that.then && that.then();
 						} catch (error) {
-							logger.error(error)
+							console.log(error)
 							if(fs.existsSync( filpath_dl ))
 								fs.unlinkSync(filpath_dl);
 						}
@@ -478,9 +477,14 @@ async function startDownload(url, headers = null, nId = null) {
 					video.status = "已完成"
 					mainWindow.webContents.send('task-notify-end',video);
 					let index_path = path.join(dir,'index.txt');
+					let key_path = path.join(dir,'aes.key');
 					if(fs.existsSync(index_path))
 					{
 						fs.unlinkSync(index_path);
+					}
+					if(fs.existsSync(key_path))
+					{
+						fs.unlinkSync(key_path);
 					}
 					filesegments.forEach(fileseg=>{
 						if(fs.existsSync(fileseg))
