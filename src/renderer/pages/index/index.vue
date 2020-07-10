@@ -37,6 +37,8 @@
 <script>
   import MyHeader from '@/components/Header'
   const { ipcRenderer } = require('electron')
+  const crypto = require('crypto')
+  const fs = require('fs')
   export default {
     name: 'index',
     data() {
@@ -46,6 +48,20 @@
     },
     components: { MyHeader },
     mounted() {
+      /* // 读取md5
+      var path = 'D:\\down\\1594366403628\\test.mp4';
+      var start = new Date().getTime();
+      var fsHash = crypto.createHash('md5');
+      var buffer = fs.readFileSync(path)
+      fsHash.update(buffer)
+      var md5 = fsHash.digest('hex')
+      console.log('文件:'+path+',MD5签名为:'+md5);
+
+      fs.appendFile(path," " , (error)  => {
+        if (error) return console.log("追加文件失败" + error.message);
+        console.log("追加成功");
+      }); */
+
       let info = document.querySelector('#info')
       ipcRenderer.on('task-add-reply', (event, data) => {
         info.innerHTML = `<span class="${data.code == 0 ?'success':'fail'}">${data.message}</span>`;
