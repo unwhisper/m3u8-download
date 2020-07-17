@@ -5,7 +5,16 @@
         <MyHeader></MyHeader>
       </div>
       <div>
-        <Input search enter-button="下载" v-model="inputValue" placeholder="输入m3u8文件地址" @on-search="download()" />
+        <div>
+          <Select v-model="select" style="width:120px">
+            <Option value="online">在线地址下载</Option>
+            <Option value="local">本地文件下载</Option>
+          </Select>
+        </div>
+        <div style="margin-top:10px;">
+          <Input search enter-button="在线下载" v-if="select == 'online'" v-model="inputValue" placeholder="输入m3u8文件地址" @on-search="download()" />
+          <Input search enter-button="本地下载" v-else icon="md-document" v-model="filepath" readonly placeholder="点击右侧图标选择m3u8文件" @on-click="chooseFile()" @on-search="localDownload()" />
+        </div>
       </div>
       <div class="content">
         <div id="info"></div>
@@ -36,14 +45,18 @@
 
 <script>
   import MyHeader from '@/components/Header'
-  const { ipcRenderer } = require('electron')
+  const { remote, ipcRenderer } = require('electron')
+  const { dialog, shell, app } = remote
   const crypto = require('crypto')
   const fs = require('fs')
   export default {
     name: 'index',
     data() {
       return {
-        inputValue: ''
+        tips: '输入m3u8文件地址',
+        inputValue: '',
+        filepath: '',
+        select: 'online'
       }
     },
     components: { MyHeader },
@@ -97,6 +110,26 @@
       });
     },
     methods: {
+      chooseFile() {
+        dialog.showOpenDialog({
+          //默认路径
+          //defaultPath :'D:/Documents/Downloads',
+          //选择操作，此处是打开文件夹
+          properties: [
+            'openFile'
+          ],
+          //过滤条件
+          filters: [
+            { name: 'All', extensions: ['m3u8','txt'] },
+          ]
+        }).then(result => {
+          if (result.canceled === false) {
+            this.filepath = result.filePaths[0]
+          }
+        }).catch(err => {
+          console.log(err)
+        })
+      },
       download() {
         let url = this.inputValue
         let reg = /^(http|https):\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?/gi
@@ -109,6 +142,18 @@
           return
         }
         ipcRenderer.send('task-add', url, '')
+      },
+      localDownload() {
+        let path = this.filepath
+        this.$layer.closeAll()
+        if(path == ''){
+          this.$layer.msg('请先选择文件!')
+          return
+        }else if(!fs.existsSync(path)){
+          this.$layer.msg('文件不存在!')
+          return
+        }
+        ipcRenderer.send('local-task-add', path)
       },
       addVideo(data) {
         let that = this;

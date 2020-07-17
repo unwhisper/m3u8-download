@@ -226,6 +226,39 @@ ipcMain.on('task-add', async function (event, arg, headers) {
 	}
 })
 
+ipcMain.on('local-task-add', function (event, arg) {
+	let path = arg
+	let info = '';
+	let code = 0;
+	code = -1;
+	info = '解析资源失败！';
+	try{
+		const response = fs.readFileSync(path, 'utf-8')
+		if (response){
+			let parser = new Parser();
+			parser.push(response);
+			parser.end();
+			let count_seg = parser.manifest.segments.length;
+			if (count_seg > 0) {
+				code = 0;
+				if (parser.manifest.endList) {
+					let duration = 0;
+					parser.manifest.segments.forEach(segment => {
+						duration += segment.duration;
+					});
+					info = `资源解析成功，有 ${count_seg} 个片段，时长：${formatTime(duration)}，即将开始缓存...`;
+					startDownloadLocal(path);
+				} else {
+					info = `解析资源失败！`;
+				}
+			}
+		}
+	}catch(error) {
+		console.log(error)
+	}
+	event.sender.send('task-add-reply', { code: code, message: info });
+})
+
 function formatTime(duration) {
 	let sec = Math.floor(duration % 60).toLocaleString();
 	let min = Math.floor(duration / 60 % 60).toLocaleString();
@@ -502,4 +535,134 @@ async function startDownload(url, headers = null, nId = null) {
 		}
 	});
 	console.log("drain over");
+}
+
+function startDownloadLocal(filepath, nId = null) {
+	let id = nId == null ? new Date().getTime() : nId;
+
+  	let dir = path.join(store.get('downloadPath'), '/'+id);
+
+	let filesegments = [];
+
+	if(!fs.existsSync(dir))
+	{
+		fs.mkdirSync(dir, { recursive: true });
+	}
+
+	try{
+		const response = fs.readFileSync(filepath, 'utf-8')
+		if(response == '')
+		{
+			return;
+		}
+		
+		let parser = new Parser();
+		parser.push(response);
+		parser.end();
+
+		//并发 3 个线程下载
+		var tsQueues = async.queue(queue_callback, 3);
+
+		let count_seg = parser.manifest.segments.length;
+		let count_downloaded = 0;
+		var video = {
+			id:id,
+			url:filepath,
+			dir:dir,
+			segment_total:count_seg,
+			segment_downloaded:count_downloaded,
+			time: dateFormat(new Date(),"yyyy-mm-dd HH:MM:ss"),
+			status:'初始化...',
+			isLiving:false,
+			videopath:''
+		};
+		if(nId == null)
+		{
+			mainWindow.webContents.send('task-notify-create',video);
+		}
+		globalCond[id] = true;
+		let segments = parser.manifest.segments;
+		for (let iSeg = 0; iSeg < segments.length; iSeg++) {
+			let qo = new QueueObject();
+			qo.dir = dir;
+			qo.idx = iSeg;
+			qo.id = id;
+			qo.url = filepath;
+			qo.segment = segments[iSeg];
+			qo.then = function(){
+				count_downloaded = count_downloaded + 1
+				video.segment_downloaded = count_downloaded;
+				video.status = `下载中...${count_downloaded}/${count_seg}`
+				mainWindow.webContents.send('task-notify-update',video);
+			};
+			tsQueues.push(qo);
+		}
+		tsQueues.drain(()=>{
+			console.log('download success');
+			video.status = "已完成，合并中..."
+			mainWindow.webContents.send('task-notify-end',video);
+			let indexData = '';
+			
+			for (let iSeg = 0; iSeg < segments.length; iSeg++) {
+				let filpath = path.join(dir, `${ ((iSeg + 1) +'').padStart(6,'0') }.ts`);
+				indexData += `file '${filpath}'\r\n`;
+				filesegments.push(filpath);
+			}
+			fs.writeFileSync(path.join(dir,'index.txt'),indexData);
+			let outPathMP4 = path.join(dir,id+'.mp4');
+			if(fs.existsSync(ffmpegPath))
+			{
+				ffmpeg()
+					.input(`${path.join(dir,'index.txt')}`)
+					.inputOptions(['-f concat', '-safe 0'])
+					.outputOptions('-c copy')
+					.output(`${outPathMP4}`)
+					.on('start', function (commandLine) {
+						console.log('Spawned Ffmpeg with command: ' + commandLine)
+					})
+					.on('codecData', function (data) {
+						console.log('Input is ' + data.audio + ' audio ' + 'with ' + data.video + ' video')
+					})
+					.on('progress', function (progress) {
+						console.log(progress.percent)
+					})
+					.on('error', function (err, stdout, stderr) {
+						console.log('Cannot process video: ' + err.message)
+						video.videopath = outPathMP4;
+						video.status = "合成失败，可能是非标准加密视频源，请联系客服定制。"
+						mainWindow.webContents.send('task-notify-end',video);
+					})
+					.on('end', function (stdout, stderr) {
+						video.videopath = outPathMP4;
+						video.status = "已完成"
+						mainWindow.webContents.send('task-notify-end',video);
+						let index_path = path.join(dir,'index.txt');
+						let key_path = path.join(dir,'aes.key');
+						if(fs.existsSync(index_path))
+						{
+							fs.unlinkSync(index_path);
+						}
+						if(fs.existsSync(key_path))
+						{
+							fs.unlinkSync(key_path);
+						}
+						filesegments.forEach(fileseg=>{
+							if(fs.existsSync(fileseg))
+							{
+								fs.unlinkSync(fileseg);
+							}
+						});
+					})
+					.run()
+					configVideos.push(video);
+			}else{
+				video.videopath = outPathMP4;
+				video.status = "已完成，未发现本地FFMPEG，不进行合成。"
+				mainWindow.webContents.send('task-notify-end',video);
+			}
+		});
+		console.log("drain over");
+	}catch(error) {
+		console.log(error)
+	}
 }
