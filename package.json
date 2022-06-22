@@ -89,7 +89,7 @@
     "dateformat": "^3.0.3",
     "download": "^8.0.0",
     "fluent-ffmpeg": "^2.1.2",
-    "got": "^11.4.0",
+    "got": "^11.8.5",
     "iview": "^3.5.4",
     "iview-area": "^1.6.0",
     "iview-editor": "^1.1.1",
